@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate diesel;
+use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
 
 use figment::{providers::Env, Figment, Profile};
@@ -63,6 +64,32 @@ async fn create_session(
     Ok(Created::new("").body(Json(SessionResponse::from(session))))
 }
 
+#[get("/session")]
+async fn get_sessions(conn: SecrustSantaDbConn) -> Json<Vec<SessionResponse>> {
+    let sessions: Vec<models::Session> = conn
+        .run(|c| {
+            schema::sessions::table
+                .load::<models::Session>(c)
+                .expect("Error loading sessions")
+        })
+        .await;
+    Json(sessions.into_iter().map(SessionResponse::from).collect())
+}
+
+#[get("/session/<session_id>")]
+async fn get_session(conn: SecrustSantaDbConn, session_id: Uuid) -> Json<SessionResponse> {
+    use self::schema::sessions::dsl::*;
+    let session: models::Session = conn
+        .run(move |c| {
+            sessions
+                .find(session_id)
+                .get_result(c)
+                .expect("Unable to load session")
+        })
+        .await;
+    Json(SessionResponse::from(session))
+}
+
 #[launch]
 fn rocket() -> _ {
     dotenv::dotenv().unwrap();
@@ -71,5 +98,8 @@ fn rocket() -> _ {
         .select(Profile::Default);
     rocket::custom(figment)
         .attach(SecrustSantaDbConn::fairing())
-        .mount("/", routes![index, create_session])
+        .mount(
+            "/",
+            routes![index, create_session, get_sessions, get_session],
+        )
 }
