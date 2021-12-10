@@ -1,5 +1,5 @@
 use crate::schema::sessions;
-use crate::SessionForm;
+use crate::session::SessionForm;
 use uuid::Uuid;
 
 #[derive(Queryable)]
