@@ -1,24 +1,71 @@
 #[macro_use]
 extern crate diesel;
+use crate::diesel::RunQueryDsl;
 
-use rocket::{get, launch, routes};
+use rocket::{
+    get, launch, post,
+    response::status::{Conflict, Created},
+    routes,
+    serde::{json::Json, uuid::Uuid, Deserialize, Serialize},
+};
+use rocket_sync_db_pools::{database, diesel as d};
 
 mod models;
 mod schema;
 
-use rocket_sync_db_pools::{database, diesel as d};
-
 #[database("secrust_santa")]
-struct LogsDbConn(d::PgConnection);
+struct SecrustSantaDbConn(d::PgConnection);
 
 #[get("/")]
 fn index() -> &'static str {
     "Hello, world!"
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(crate = "rocket::serde")]
+struct SessionForm {
+    name: String,
+}
+
+#[derive(Default, Debug, Serialize)]
+#[serde(crate = "rocket::serde")]
+struct SessionResponse {
+    id: Uuid,
+    name: String,
+}
+
+/*
+impl From<models::Session> for SessionResponse {
+    fn from(session: models::Session) -> Self {
+        Self {
+            id: UUID,
+            name: session.name.to_owned(),
+        }
+    }
+}
+*/
+
+#[post("/session", data = "<session_form>")]
+async fn create_session(
+    conn: SecrustSantaDbConn,
+    session_form: Json<SessionForm>,
+) -> Result<Created<Json<SessionResponse>>, Conflict<String>> {
+    let session_form = session_form.into_inner();
+    // let session: models::Session =
+    conn.run(|c| {
+        diesel::insert_into(schema::sessions::table)
+            .values(models::NewSession::from(session_form))
+            .execute(c)
+            // .get_result(c)
+            .expect("Error saving new post");
+    })
+    .await;
+    Ok(Created::new("").body(Json(SessionResponse::default())))
+}
+
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .attach(LogsDbConn::fairing())
+        .attach(SecrustSantaDbConn::fairing())
         .mount("/", routes![index])
 }
