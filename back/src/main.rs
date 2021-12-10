@@ -2,13 +2,16 @@
 extern crate diesel;
 use crate::diesel::RunQueryDsl;
 
+use figment::{providers::Env, Figment, Profile};
+
 use rocket::{
     get, launch, post,
     response::status::{Conflict, Created},
     routes,
-    serde::{json::Json, uuid::Uuid, Deserialize, Serialize},
+    serde::{json::Json, Deserialize, Serialize},
 };
 use rocket_sync_db_pools::{database, diesel as d};
+use uuid::Uuid;
 
 mod models;
 mod schema;
@@ -34,16 +37,14 @@ struct SessionResponse {
     name: String,
 }
 
-/*
 impl From<models::Session> for SessionResponse {
     fn from(session: models::Session) -> Self {
         Self {
-            id: UUID,
+            id: session.id,
             name: session.name.to_owned(),
         }
     }
 }
-*/
 
 #[post("/session", data = "<session_form>")]
 async fn create_session(
@@ -51,21 +52,24 @@ async fn create_session(
     session_form: Json<SessionForm>,
 ) -> Result<Created<Json<SessionResponse>>, Conflict<String>> {
     let session_form = session_form.into_inner();
-    // let session: models::Session =
-    conn.run(|c| {
-        diesel::insert_into(schema::sessions::table)
-            .values(models::NewSession::from(session_form))
-            .execute(c)
-            // .get_result(c)
-            .expect("Error saving new post");
-    })
-    .await;
-    Ok(Created::new("").body(Json(SessionResponse::default())))
+    let session: models::Session = conn
+        .run(|c| {
+            diesel::insert_into(schema::sessions::table)
+                .values(models::NewSession::from(session_form))
+                .get_result::<models::Session>(c)
+                .expect("Error saving new post")
+        })
+        .await;
+    Ok(Created::new("").body(Json(SessionResponse::from(session))))
 }
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build()
+    dotenv::dotenv().unwrap();
+    let figment = Figment::from(rocket::Config::default())
+        .merge(Env::prefixed("APP_").global())
+        .select(Profile::Default);
+    rocket::custom(figment)
         .attach(SecrustSantaDbConn::fairing())
-        .mount("/", routes![index])
+        .mount("/", routes![index, create_session])
 }

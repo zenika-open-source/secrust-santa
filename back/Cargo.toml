@@ -6,8 +6,10 @@ edition = "2021"
 
 [dependencies]
 rocket = { version = "0.5.0-rc.1", features = ["json", "uuid"] }
-diesel = { version = "1.4.4", features = ["postgres", "r2d2", "uuid"] }
+diesel = { version = "1.4.4", features = ["postgres", "r2d2", "uuidv07"] }
+uuid = { version = "0.8.2", features = ["v4"] }
 dotenv = "0.15.0"
+figment = "0.10.6"
 
 [dependencies.rocket_sync_db_pools]
 version = "0.1.0-rc.1"

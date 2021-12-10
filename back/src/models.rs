@@ -1,8 +1,8 @@
 use crate::schema::sessions;
 use crate::SessionForm;
-use diesel::pg::types::sql_types::Uuid;
+use uuid::Uuid;
 
-#[derive(Queryable, Debug)]
+#[derive(Queryable)]
 pub struct Session {
     pub id: Uuid,
     pub name: String,
