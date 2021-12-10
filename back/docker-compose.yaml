@@ -1,0 +1,10 @@
+version: "3"
+services:
+  db:
+    image: postgres:14.1-bullseye
+    restart: always
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data
+    env_file:
+    - .env
+    
